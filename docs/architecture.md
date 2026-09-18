@@ -49,6 +49,13 @@ fused `UNIDIRECTIONAL_SEQUENCE_LSTM`. The trained weights are copied across exac
 probability difference 0.0), giving a 32.8 KB INT8 model with 8 built-in ops and no Flex ops. `ConvLSTM1D` has no such
 path and was not deployed.
 
+## Real data
+
+`prefall/realdata.py` loads SisFall and KFall into the same `Trial` objects the simulator produces: it converts raw
+units, estimates each dataset's axis frame from the recordings, and reads KFall's fall-onset and impact labels.
+SisFall has no timing labels, so its impact time is estimated from the acceleration peak. See
+[real-data.md](real-data.md).
+
 ## Evaluation protocol
 
 - Split by **trial** (first half of the shuffled trials train, second half test), never by window.

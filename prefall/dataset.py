@@ -23,7 +23,7 @@ def build_raw_windows(trials, hop=5):
     the 12-D features. Row order is identical, so labels line up one to one."""
     X, y, tid, tend = [], [], [], []
     for i, tr in enumerate(trials):
-        W, ends = sliding_windows(condition(tr.raw), WIN, hop)
+        W, ends = sliding_windows(condition(tr.raw, tr.fs_raw), WIN, hop)
         te = ends / FS
         lab = _labels(tr, te)
         keep = lab >= 0
@@ -38,7 +38,7 @@ def build_windows(trials, hop=5):
     is longer than the whole 200-400 ms pre-impact window."""
     X, y, tid, tend = [], [], [], []
     for i, tr in enumerate(trials):
-        F, ends = extract(condition(tr.raw), WIN, hop)
+        F, ends = extract(condition(tr.raw, tr.fs_raw), WIN, hop)
         te = ends / FS
         lab = np.zeros(len(te), int)
         if tr.kind == "fall":

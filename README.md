@@ -14,7 +14,8 @@
 [Results](docs/results.md) ·
 [Architecture](docs/architecture.md) ·
 [Firmware](firmware/README.md) ·
-[Deck vs. measured](docs/deck-vs-measured.md)
+[Deck vs. measured](docs/deck-vs-measured.md) ·
+[Real datasets](docs/real-data.md)
 
 </div>
 
@@ -96,11 +97,25 @@ python scripts/run_step2c.py       # threshold + model confirmation, ML-first   
 python scripts/run_step3.py        # pruning, INT8 TFLite export                          (a few minutes)
 python scripts/run_step4.py        # caregiver demo page in docs/demo/                    (a few minutes)
 
-python -m pytest -q                # 17 tests (deep-model tests skip themselves without TensorFlow)
+python -m pytest -q                # 23 tests (deep-model tests skip themselves without TensorFlow)
 ```
 
 Open `docs/demo/prefall_demo.html` in a browser to play back scenarios: live traces, the moment the alert fires, the
 phone notification and the decoded BLE payload.
+
+## Real datasets
+
+The same pipeline can be trained and tested on the public **SisFall** and **KFall** datasets (waist / low-back sensors,
+subject-wise splits). Loaders and a rehearsal mode are included; see [docs/real-data.md](docs/real-data.md) for how to
+get the data and what to expect.
+
+```bash
+python tools/make_mock_datasets.py                                          # fake files in the real formats, to rehearse
+python scripts/run_real_data.py --dataset sisfall --path data/real/SisFall  # real data, once downloaded
+```
+
+> [!NOTE]
+> The loaders have been tested on generated files only, not yet on the real downloads.
 
 ## Repository layout
 
@@ -137,7 +152,7 @@ g++ -std=c++17 -O2 -Wall -Wextra -Ifirmware/core firmware/test/host_test.cpp -o 
 
 ## Limitations
 
-- **Simulated data only.** The simulator encodes the physics the seminar deck describes (weightlessness dip, tilt, impact spike). Real falls, real sensor noise, mounting and real walking styles are messier. Expect to collect recordings and re-run the pipeline before trusting any figure.
+- **Simulated data only so far.** Loaders for SisFall and KFall are included but have not yet been run on the real files. The simulator encodes the physics the seminar deck describes (weightlessness dip, tilt, impact spike). Real falls, real sensor noise, mounting and real walking styles are messier. Expect to collect recordings and re-run the pipeline before trusting any figure.
 - **Small test set.** 117 normal-activity trials: a measured 100% specificity is compatible with about 97%.
 - **IMU only.** The insole's force sensors (FSR) and barometer are not modelled.
 - **No on-device numbers yet.** Inference time, alert latency, BLE latency, RAM use and battery life are targets from the deck, not measurements.
@@ -150,9 +165,15 @@ g++ -std=c++17 -O2 -Wall -Wextra -Ifirmware/core firmware/test/host_test.cpp -o 
 - [x] INT8 TFLite export (33 KB), caregiver demo
 - [x] Portable C++ core verified against Python
 - [ ] Run the firmware on an ESP32-S3 + MPU-6050 and measure latency
+- [x] Loaders for SisFall and KFall (tested on generated files only)
+- [ ] Run the pipeline on the real SisFall / KFall data
 - [ ] Record real IMU data and re-evaluate
-- [ ] Train and test on SisFall / KFall
+- [ ] Wrist-worn data (FallAllD) for the wristband variant
 - [ ] Insole (FSR) variant and cost model in INR
+
+## Team
+
+Embedded systems seminar, AY 2025-26: Swarnava, Chiranshee, Sparsh.
 
 ## Related work
 

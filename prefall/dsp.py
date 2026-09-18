@@ -20,6 +20,16 @@ def butter_bandpass(x, fs=FS, lo=0.5, hi=10.0, order=2):
 
 
 def condition(raw, fs_raw=FS_RAW, fs=FS):
-    """Slide 9 front end: anti-alias LPF at the raw rate, then decimate to 50 Hz."""
-    ratio = int(round(fs_raw / fs))
-    return butter_lpf(raw, fs_raw)[::ratio]
+    """Slide 9 front end: anti-alias LPF at the raw rate, then decimate to 50 Hz.
+
+    Integer ratios (200 Hz -> 4, 100 Hz -> 2) are pure decimation, exactly what the firmware does.
+    Other rates (for example 238 Hz) are resampled with a polyphase filter, which is offline only.
+    """
+    y = butter_lpf(raw, fs_raw)
+    ratio = fs_raw / fs
+    if abs(ratio - round(ratio)) < 1e-6:
+        return y[::int(round(ratio))]
+    from fractions import Fraction
+    from scipy.signal import resample_poly
+    f = Fraction(fs / fs_raw).limit_denominator(1000)
+    return resample_poly(y, f.numerator, f.denominator, axis=0)

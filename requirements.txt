@@ -3,6 +3,7 @@ numpy
 scipy
 matplotlib
 scikit-learn
+openpyxl
 pytest
 
 # deep models, INT8 export and the demo (steps 2b, 2c, 3, 4). Python 3.10-3.13.

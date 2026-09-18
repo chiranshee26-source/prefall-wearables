@@ -22,6 +22,7 @@ class Trial:
     t_onset: float | None      # fall onset (s), falls only
     t_impact: float | None     # impact time (s), falls only
     subject: dict
+    fs_raw: float = FS_RAW     # sampling rate of `raw` (real datasets differ: 100, 200, 238 Hz)
 
 
 def _subject(rng):
