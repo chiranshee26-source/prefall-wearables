@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# generated data and models (recreate with scripts/run_step*.py)
+data/*
+!data/.gitkeep
+
+# generated test vectors and build outputs for the firmware host test
+firmware/test/vectors.bin
+host_test
+host_test.exe
+*.o
+
+# PlatformIO
+.pio/
+.vscode/
+
+# OS / editor
+.DS_Store
+Thumbs.db

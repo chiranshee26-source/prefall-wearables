@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prefall"
+version = "0.1.0"
+description = "Pre-fall prediction for elderly wearables: simulation, models, TinyML export, caregiver demo and ESP32 firmware"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["numpy", "scipy", "matplotlib", "scikit-learn"]
+
+[project.optional-dependencies]
+deep = ["tensorflow", "tf_keras"]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["prefall*"]
+
+[tool.setuptools.package-data]
+prefall = ["demo_template.html"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

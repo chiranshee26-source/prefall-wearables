@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install (without TensorFlow; deep-model tests skip themselves)
+        run: pip install numpy scipy matplotlib scikit-learn pytest
+      - name: Run tests
+        run: python -m pytest -q
+
+  firmware:
+    name: Firmware core vs Python reference
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install numpy scipy matplotlib scikit-learn
+      - name: Generate training data and firmware assets
+        run: |
+          python scripts/run_step1.py
+          python tools/export_firmware_assets.py
+      - name: Build and run the host test
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror -Ifirmware/core firmware/test/host_test.cpp -o host_test
+          ./host_test firmware/test/vectors.bin
+      - name: Syntax-check the ESP32 sources against stand-in headers
+        run: g++ -std=gnu++17 -fsyntax-only -Wall -Wextra -Ifirmware/test/mock -Ifirmware/core -Ifirmware/esp32/src firmware/esp32/src/main.cpp

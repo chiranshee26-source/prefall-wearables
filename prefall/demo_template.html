@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pre-fall prediction demo</title>
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--ink:#1c2430;--mut:#66748a;--line:#e1e6ee;--acc:#2f6fed;--red:#d9382c;--grn:#1f9d55;--amb:#e08a00}
+@media (prefers-color-scheme:dark){:root{--bg:#11151b;--card:#1a2029;--ink:#e8edf3;--mut:#93a0b1;--line:#2a3340;--acc:#6ea0ff;--red:#ff6b5e;--grn:#4cc38a;--amb:#f0a93b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:20px}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+label{color:var(--mut);font-size:13px}
+select,button{font:inherit;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+.plot h3{font-size:13px;margin:6px 0 2px;color:var(--mut);font-weight:600}
+canvas{width:100%;height:112px;display:block}
+.status{font-size:13px;color:var(--mut)}
+.alert{border-radius:12px;padding:14px;border:1px solid var(--line)}
+.alert.idle{background:var(--card)}
+.alert.fire{background:color-mix(in srgb,var(--red) 12%,var(--card));border-color:var(--red)}
+.alert.good{background:color-mix(in srgb,var(--grn) 12%,var(--card));border-color:var(--grn)}
+.big{font-size:18px;font-weight:650;margin:0 0 4px}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600}
+.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;border:1px solid var(--line)}
+.ok{color:var(--grn)}.bad{color:var(--red)}.warn{color:var(--amb)}
+.legend{font-size:12px;color:var(--mut);margin-top:6px}
+.phone{border:1px solid var(--line);border-radius:22px;padding:14px;background:var(--bg);margin-top:10px}
+.notif{background:var(--card);border-radius:12px;padding:10px 12px;border:1px solid var(--line);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Pre-fall prediction: simulated device to caregiver</h1>
+  <p class="sub">Every trace below was produced by the real pipeline (50 Hz signal chain, threshold detector, SVM, and the INT8 CNN-BiLSTM model file) on simulated sensor data. No hardware involved.</p>
+
+  <div class="card row">
+    <div><label>Scenario<br><select id="scn"></select></label></div>
+    <div><label>Detector<br><select id="pol">
+      <option value="A">A: threshold trigger, then SVM confirms (deck design)</option>
+      <option value="B">B: ML-first, INT8 CNN-BiLSTM positive for 300 ms</option>
+    </select></label></div>
+    <div><label>Speed<br><select id="spd"><option value="0.25">0.25x</option><option value="0.5" selected>0.5x</option><option value="1">1x</option></select></label></div>
+    <div style="align-self:end"><button class="primary" id="play">Play</button> <button id="rst">Restart</button></div>
+    <div class="status" id="clock" style="align-self:end"></div>
+  </div>
+
+  <div class="grid">
+    <div class="card plot">
+      <h3>Acceleration magnitude (g), dotted line = 0.5 g free-fall level</h3><canvas id="c0"></canvas>
+      <h3>Trunk angle (degrees), dotted line = threshold angle</h3><canvas id="c1"></canvas>
+      <h3>Descent speed (m/s), dotted line = threshold speed</h3><canvas id="c2"></canvas>
+      <h3>Model output: P(pre-fall), dotted line = 0.5</h3><canvas id="c3"></canvas>
+      <div class="legend">Orange band = the true pre-impact window (fall onset to impact). Red line = alert sent to the caregiver.</div>
+    </div>
+    <div>
+      <div class="card">
+        <div id="alertbox" class="alert idle"><p class="big" id="a_title">Monitoring</p><div id="a_body" class="status">Waiting for the simulation to run.</div></div>
+        <div class="phone"><div class="status" style="margin-bottom:6px">Caregiver phone</div>
+          <div class="notif" id="notif">No notifications</div></div>
+      </div>
+      <div class="card">
+        <div class="status" style="margin-bottom:4px">BLE payload (8 bytes)</div>
+        <div class="mono" id="hex">none sent</div>
+        <div class="status" id="dec" style="margin-top:6px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="status" style="margin-bottom:6px"><b>Full test set</b> (200 held-out simulated trials, run through the deployable pieces). A handful of examples is not evidence; these numbers are.</div>
+    <table id="agg"></table>
+    <div class="legend">Simulated data only. Detector A is deterministic; B's numbers vary noticeably between training runs. Not clinical validation.</div>
+  </div>
+  <div class="card">
+    <div class="status" style="margin-bottom:6px">The scenarios above, both detectors (the first three trials of each kind in the test set, not hand-picked)</div>
+    <table id="sum"></table>
+  </div>
+</div>
+
+<script>
+const D = __DATA__;
+const $ = id => document.getElementById(id);
+const css = getComputedStyle(document.documentElement);
+const col = n => css.getPropertyValue(n).trim();
+let si = 0, pol = 'A', t = 0, playing = false, speed = 0.5, lastTs = 0;
+
+function verdict(s, p) {
+  const al = s.alarms[p];
+  if (s.kind === 'fall') {
+    const ok = al.filter(a => a >= s.onset && a < s.impact);
+    if (ok.length) return {cls: 'ok', txt: 'Alert ' + Math.round((s.impact - ok[0]) * 1000) + ' ms before impact'};
+    if (al.length) return {cls: 'bad', txt: al[0] < s.onset ? 'False alert before the fall' : 'Alert after impact (too late)'};
+    return {cls: 'bad', txt: 'Missed fall'};
+  }
+  return al.length ? {cls: 'bad', txt: 'False alarm (no fall occurs)'} : {cls: 'ok', txt: 'Correctly ignored'};
+}
+
+function decode(hex) {
+  const b = hex.match(/../g).map(h => parseInt(h, 16));
+  return {t: ((b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0), dev: b[4] | (b[5] << 8), conf: b[6] / 255, policy: b[7]};
+}
+
+function plot(cv, s, arr, o) {
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+  const L = 40, R = 8, T = 6, B = 6, w = W - L - R, h = H - T - B, dur = s.n / s.fs;
+  const x = tt => L + tt / dur * w, y = v => T + (1 - (Math.min(Math.max(v, o.min), o.max) - o.min) / (o.max - o.min)) * h;
+  c.lineWidth = 1; c.font = '11px system-ui'; c.textAlign = 'right';
+  o.ticks.forEach(v => { c.strokeStyle = col('--line'); c.beginPath(); c.moveTo(L, y(v)); c.lineTo(L + w, y(v)); c.stroke(); c.fillStyle = col('--mut'); c.fillText(v, L - 6, y(v) + 4); });
+  if (s.onset !== null) { c.fillStyle = 'rgba(224,138,0,0.16)'; c.fillRect(x(s.onset), T, x(s.impact) - x(s.onset), h); }
+  if (o.ref !== null) { c.setLineDash([4, 4]); c.strokeStyle = col('--mut'); c.beginPath(); c.moveTo(L, y(o.ref)); c.lineTo(L + w, y(o.ref)); c.stroke(); c.setLineDash([]); }
+  const k = Math.min(arr.length - 1, Math.floor(t * s.fs));
+  c.strokeStyle = col('--acc'); c.lineWidth = 1.6; c.beginPath();
+  for (let i = 0; i <= k; i++) { const px = x(i / s.fs), py = y(arr[i]); i ? c.lineTo(px, py) : c.moveTo(px, py); }
+  c.stroke();
+  s.alarms[pol].filter(a => a <= t).forEach(a => { c.strokeStyle = col('--red'); c.lineWidth = 2; c.beginPath(); c.moveTo(x(a), T); c.lineTo(x(a), T + h); c.stroke(); });
+  c.strokeStyle = col('--mut'); c.lineWidth = 1; c.beginPath(); c.moveTo(x(t), T); c.lineTo(x(t), T + h); c.stroke();
+}
+
+function render() {
+  const s = D.scenarios[si], dur = s.n / s.fs;
+  plot($('c0'), s, s.a, {min: 0, max: 6, ticks: [0, 2, 4, 6], ref: 0.5});
+  plot($('c1'), s, s.th, {min: 0, max: 90, ticks: [0, 30, 60, 90], ref: D.params.theta_crit});
+  plot($('c2'), s, s.vd, {min: 0, max: 2.5, ticks: [0, 1, 2], ref: D.params.v_thr});
+  plot($('c3'), s, s.p, {min: 0, max: 1, ticks: [0, 0.5, 1], ref: 0.5});
+  $('clock').textContent = t.toFixed(2) + ' s / ' + dur.toFixed(1) + ' s';
+  const fired = s.alarms[pol].map((a, i) => [a, i]).filter(([a]) => a <= t);
+  const box = $('alertbox');
+  if (fired.length) {
+    const [a, i] = fired[fired.length - 1], v = verdict(s, pol), hex = s.payloads[pol][i], d = decode(hex);
+    box.className = 'alert ' + (v.cls === 'ok' ? 'good' : 'fire');
+    $('a_title').textContent = 'PRE-FALL ALERT';
+    $('a_body').innerHTML = '<span class="' + v.cls + '"><b>' + v.txt + '</b></span><br>Sent at t = ' + a.toFixed(2) + ' s';
+    $('hex').textContent = hex.match(/../g).join(' ');
+    $('dec').innerHTML = 'time ' + d.t + ' ms | device 0x' + d.dev.toString(16).toUpperCase().padStart(4, '0') + ' | confidence ' + Math.round(d.conf * 100) + '% | detector ' + (d.policy ? 'B' : 'A');
+    $('notif').innerHTML = '<b>Fall risk detected</b><br>Device 0x' + d.dev.toString(16).toUpperCase().padStart(4, '0') + ', confidence ' + Math.round(d.conf * 100) + '%';
+  } else {
+    box.className = 'alert idle';
+    $('a_title').textContent = t >= dur - 1e-6 ? 'Run finished' : 'Monitoring';
+    $('a_body').textContent = t >= dur - 1e-6 ? verdict(s, pol).txt : 'No alert sent yet.';
+    $('hex').textContent = 'none sent'; $('dec').textContent = ''; $('notif').textContent = 'No notifications';
+  }
+}
+
+function frame(ts) {
+  if (!playing) return;
+  const s = D.scenarios[si], dur = s.n / s.fs;
+  if (lastTs) t += (ts - lastTs) / 1000 * speed;
+  lastTs = ts;
+  if (t >= dur) { t = dur; playing = false; $('play').textContent = 'Play'; }
+  render();
+  if (playing) requestAnimationFrame(frame);
+}
+function play() {
+  const s = D.scenarios[si];
+  if (playing) { playing = false; $('play').textContent = 'Play'; return; }
+  if (t >= s.n / s.fs) t = 0;
+  playing = true; lastTs = 0; $('play').textContent = 'Pause'; requestAnimationFrame(frame);
+}
+function reset() { playing = false; t = 0; $('play').textContent = 'Play'; render(); }
+
+D.scenarios.forEach((s, i) => { const o = document.createElement('option'); o.value = i; o.textContent = s.label; $('scn').appendChild(o); });
+$('scn').onchange = e => { si = +e.target.value; reset(); };
+$('pol').onchange = e => { pol = e.target.value; render(); };
+$('spd').onchange = e => { speed = +e.target.value; };
+$('play').onclick = play; $('rst').onclick = reset;
+window.addEventListener('resize', render);
+
+const rows = D.scenarios.map(s => {
+  const a = verdict(s, 'A'), b = verdict(s, 'B');
+  return '<tr><td>' + s.label + '</td><td class="' + a.cls + '">' + a.txt + '</td><td class="' + b.cls + '">' + b.txt + '</td></tr>';
+}).join('');
+$('sum').innerHTML = '<tr><th>Scenario</th><th>A: threshold + SVM</th><th>B: ML-first, 300 ms</th></tr>' + rows;
+const pc = v => (100 * v).toFixed(1) + '%', A = D.summary.A, B = D.summary.B;
+const fa = (r, k) => r.fa[k] === undefined ? '-' : pc(r.fa[k]);
+$('agg').innerHTML = '<tr><th></th><th>A: threshold + SVM</th><th>B: ML-first, 300 ms</th></tr>'
+  + '<tr><td>Falls caught before impact</td><td>' + pc(A.sensitivity) + '</td><td>' + pc(B.sensitivity) + '</td></tr>'
+  + '<tr><td>Normal-activity trials with no false alarm</td><td>' + pc(A.specificity) + '</td><td>' + pc(B.specificity) + '</td></tr>'
+  + '<tr><td>Mean lead time before impact</td><td>' + Math.round(A.lead_ms) + ' ms</td><td>' + Math.round(B.lead_ms) + ' ms</td></tr>'
+  + '<tr><td>Falls with at least 200 ms of lead</td><td>' + pc(A.useful) + '</td><td>' + pc(B.useful) + '</td></tr>'
+  + '<tr><td>False alarms: fast sitting / stumble / jump</td><td>' + fa(A, 'sit_fast') + ' / ' + fa(A, 'stumble') + ' / ' + fa(A, 'jump') + '</td><td>' + fa(B, 'sit_fast') + ' / ' + fa(B, 'stumble') + ' / ' + fa(B, 'jump') + '</td></tr>'
+  + '<tr><td>Trials</td><td colspan="2">' + A.n_fall + ' falls, ' + A.n_adl + ' normal-activity</td></tr>';
+render();
+</script>
+</body>
+</html>
