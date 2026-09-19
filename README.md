@@ -171,10 +171,6 @@ g++ -std=c++17 -O2 -Wall -Wextra -Ifirmware/core firmware/test/host_test.cpp -o 
 - [ ] Wrist-worn data (FallAllD) for the wristband variant
 - [ ] Insole (FSR) variant and cost model in INR
 
-## Team
-
-Embedded systems seminar, AY 2025-26: Swarnava, Chiranshee, Sparsh.
-
 ## Related work
 
 As cited in the seminar deck (verify details before citing elsewhere): Wu (2000) velocity-threshold fall detection;
