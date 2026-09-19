@@ -166,7 +166,7 @@ g++ -std=c++17 -O2 -Wall -Wextra -Ifirmware/core firmware/test/host_test.cpp -o 
 - [x] Portable C++ core verified against Python
 - [ ] Run the firmware on an ESP32-S3 + MPU-6050 and measure latency
 - [x] Loaders for SisFall and KFall (tested on generated files only)
-- [ ] Run the pipeline on the real SisFall / KFall data
+- [x] Run the pipeline on the real SisFall data (KFall pending access approval)
 - [ ] Record real IMU data and re-evaluate
 - [ ] Wrist-worn data (FallAllD) for the wristband variant
 - [ ] Insole (FSR) variant and cost model in INR
