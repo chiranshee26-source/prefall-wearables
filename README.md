@@ -103,6 +103,14 @@ python -m pytest -q                # 23 tests (deep-model tests skip themselves 
 Open `docs/demo/prefall_demo.html` in a browser to play back scenarios: live traces, the moment the alert fires, the
 phone notification and the decoded BLE payload.
 
+> **If the demo looks broken (flat graphs, Play does nothing):** it's almost always the browser, not the code.
+> - Try it in an incognito/private window first — this rules out browser extensions and stale cache.
+> - Use a recent version of Chrome, Firefox, or Edge. Very old browsers or locked-down work/college laptops can
+>   silently block parts of the page.
+> - If it was working, then suddenly isn't, do a hard refresh (Ctrl+Shift+R on Windows/Linux, Cmd+Shift+R on Mac)
+>   to clear a stale cached copy.
+> - Still stuck? Open DevTools (F12) → Console tab, and check for red error text — that pins down the exact cause.
+
 ## Real datasets
 
 The same pipeline can be trained and tested on the public **SisFall** and **KFall** datasets (waist / low-back sensors,
