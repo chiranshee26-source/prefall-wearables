@@ -90,6 +90,50 @@ depends on the training run:** retraining from scratch gave 89.2% of falls caugh
 
 With 117 normal-activity trials, a measured 100% specificity is compatible with a true value around 97%.
 
+## Real data: SisFall (38 subjects, full dataset)
+
+Everything above is simulated. This section is the pipeline run for real on
+[SisFall](https://doi.org/10.3390/s17010198) — 4,495 recordings, 1,788 falls, split by subject (11 held out,
+never seen in training). See [`docs/real-data.md`](real-data.md) for how to reproduce this and the caveats
+that apply (SisFall has no fall-timing labels, so lead time is estimated, not measured).
+
+| Detector | Falls caught | No false alarm | Mean lead | Elderly: no false alarm |
+|---|---|---|---|---|
+| Threshold alone | 70.5-72.9% | 19.4-21.9% | 418-478 ms | 7-15% |
+| **A: threshold, then SVM confirms** | **63.0-63.7%** | **33.5-42.8%** | 401-457 ms | 14-25% |
+| A: threshold, then Random Forest | 60.7-61.2% | 36.1-45.6% | 399-452 ms | 12-27% |
+| ML-first: SVM, 200-300 ms | 42.9-44.1% | 14.6-25.5% | 440-550 ms | 9-15% |
+| ML-first: Random Forest, 300 ms | 41.9-44.0% | 17.1-27.9% | 374-495 ms | 12-19% |
+
+Ranges are across two random subject splits (seed 0 and seed 1); see below for why they're reported as ranges,
+not single numbers.
+
+**The two-stage detector (threshold gate, then ML confirms) clearly beats ML-first on real data** — roughly 20
+points higher on both sensitivity and specificity than any ML-first policy, the opposite of what the ML-first
+policy showed on simulated data. Real sensor noise breaks the "model stays positive for d ms straight"
+assumption ML-first depends on: it causes both missed falls (noise interrupts a true positive streak) and false
+alarms (noise sustains a false one), while the threshold gate is a cheap, robust first filter.
+
+**Numbers here are much lower than the simulated results above, and that gap is itself the honest finding.**
+Real recordings have sensor noise, varied gait, and fall types the simulator does not model.
+
+**Elderly-specific specificity is worse than the overall number** (14-25% against 33-43% overall) — the detector
+false-alarms more often on the actual target population than on the dataset as a whole. This is the clearest
+real limitation and worth stating directly rather than only quoting the overall figure.
+
+**Sensitivity is stable across the two seeds (~63%); specificity and lead time are not** (a ~10-point and
+~55 ms swing between seeds). With only 11 subjects held out each time, a handful of people decide the result —
+report sensitivity as a point estimate, specificity as a range, and don't trust the elderly-only number as a
+single figure.
+
+**Hardest fall type: F05** (16-26% caught across seeds), a lateral fall — the threshold gate assumes forward or
+backward tilt, so it structurally misses more of these; the model-based detectors don't depend on tilt
+direction but still inherit some of the miss. **Most-triggering daily activities**: D12/D13 (sitting-related)
+and D17, all in the 73-100% false-alarm range for detector A.
+
+KFall (fall-onset and impact labeled from video, so trustworthy lead time) is requested and pending approval;
+running the same two seeds there will show whether these numbers are SisFall-specific.
+
 ## Firmware core vs Python (`firmware/test`)
 
 12 test trials, three detector configurations, both from Python's own 50 Hz stream and from raw 200 Hz samples:
