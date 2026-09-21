@@ -9,6 +9,20 @@ how to get them, and how to run the pipeline on them.
 > SisFall is large and KFall is approval-gated. If anything looks wrong on the first real run, use `--inspect` (below)
 > and the fix is usually a one-line change.
 
+> [!NOTE]
+> **How the numbers on this page were produced.** Every prediction referenced here — on the main
+> demo page and in `docs/results.md` — comes from the actual trained, pruned, INT8-quantized model
+> file in `export/`. Nothing is hand-picked or hardcoded to look good.
+>
+> What *is* precomputed: the traces on the [live demo page](https://chiranshee26-source.github.io/prefall-wearables/demo/prefall_demo.html)
+> are generated once, offline, in Python (`prefall/demo.py`), then embedded as static arrays and
+> replayed by JavaScript when you scrub the timeline. The browser is not running the model while
+> you watch that page — it's drawing a chart of real output that was already computed.
+>
+> A separate page, [`demo/live/index.html`](https://chiranshee26-source.github.io/prefall-wearables/demo/live/index.html),
+> runs the same `.tflite` model **live, in your browser**, via TensorFlow.js + WebAssembly, as a
+> stand-in for on-device ESP32 inference until the hardware boards arrive.
+
 ## The datasets
 
 | Dataset | What it is | Sensor placement | Timing labels | Access |

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live model inference — Pre-Fall Wearables</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem;
+         background:#111; color:#eee; line-height:1.5; }
+  a { color:#7ab8ff; }
+  h1 { font-size:1.4rem; }
+  .card { background:#1b1b1b; border:1px solid #333; border-radius:10px; padding:1rem 1.2rem; margin:1rem 0; }
+  button { background:#2a5c8a; color:#fff; border:none; border-radius:6px; padding:.6rem 1.1rem; font-size:.95rem; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .status { font-size:.85rem; color:#9a9a9a; margin-top:.5rem; white-space:pre-wrap; }
+  .result { font-size:1.05rem; margin-top:.7rem; }
+  .bar-bg { background:#333; border-radius:5px; height:14px; width:100%; overflow:hidden; margin-top:.3rem; }
+  .bar-fg { background:#c0392b; height:100%; width:0%; transition:width .4s; }
+  .match { color:#4caf50; font-weight:600; }
+  .mismatch { color:#e74c3c; font-weight:600; }
+  code { background:#252525; padding:.1rem .35rem; border-radius:4px; }
+  .note { font-size:.85rem; color:#aaa; }
+</style>
+</head>
+<body>
+<h1>Live model inference, in this browser</h1>
+<p>
+This page loads the project's actual deployable model file
+(<code>cnn_bilstm_int8.tflite</code>, the same INT8 CNN-BiLSTM used everywhere else in the results)
+and runs it <strong>live, right now, in your browser</strong> via TensorFlow.js + WebAssembly —
+nothing here is precomputed or replayed. It's a stand-in for the on-device ESP32 inference until
+the hardware boards arrive.
+</p>
+<p class="note">
+This is a separate, focused proof that live in-browser inference works — it runs the model on one
+50-sample sensor window at a time. It is not the scrubbing trace on the
+<a href="../prefall_demo.html">main demo page</a>, which plays back longer precomputed traces
+(see the note there for why).
+</p>
+
+<div class="card">
+  <div id="engine-status" class="status">Loading TensorFlow.js + the TFLite WASM runtime…</div>
+</div>
+
+<div class="card">
+  <strong>Example 1 — near a simulated fall impact</strong>
+  <div class="note">A real 50-sample conditioned IMU window from the same synthetic fall pipeline used in the results.</div>
+  <button id="run-fall" disabled>Run the model on this window</button>
+  <div id="result-fall" class="result"></div>
+</div>
+
+<div class="card">
+  <strong>Example 2 — from a simulated walking trial</strong>
+  <div class="note">A window from ordinary walking, not a fall.</div>
+  <button id="run-walk" disabled>Run the model on this window</button>
+  <div id="result-walk" class="result"></div>
+</div>
+
+<p class="note">
+Each result also shows the reference probability computed by the same model file in Python
+(<code>prefall/deploy.py</code>'s <code>TFLiteRunner</code>), so you can see the two agree —
+this checks that the browser is really running the model correctly, not just returning a fixed number.
+</p>
+
+<script src="tf.min.js"></script>
+<script src="tf-tflite.min.js"></script>
+<script>
+const INPUT_Q = { scale: 0.008294652216136456, zeroPoint: -11 };
+const OUTPUT_Q = { scale: 0.00390625, zeroPoint: -128 };
+
+let model = null;
+let examples = null;
+
+function setStatus(msg) {
+  document.getElementById('engine-status').textContent = msg;
+}
+
+async function loadEverything() {
+  try {
+    tflite.setWasmPath('wasm/');
+    setStatus('Loading TFLite model…');
+    model = await tflite.loadTFLiteModel('cnn_bilstm_int8.tflite');
+    setStatus('Loading example sensor windows…');
+    examples = await (await fetch('examples.json')).json();
+    setStatus('Ready. The model and WASM runtime are loaded in this tab — click a button below to run it.');
+    document.getElementById('run-fall').disabled = false;
+    document.getElementById('run-walk').disabled = false;
+  } catch (e) {
+    setStatus('Failed to load the model in this browser: ' + e.message +
+      '\nThis needs WebAssembly support (any recent Chrome, Firefox, Edge or Safari).');
+  }
+}
+
+async function runExample(key, resultElId) {
+  const el = document.getElementById(resultElId);
+  el.textContent = 'Running…';
+  const ex = examples[key];
+  const flat = ex.window.flat();
+
+  const floatTensor = tf.tensor(flat, [1, 50, 6], 'float32');
+  const q = floatTensor.div(INPUT_Q.scale).add(INPUT_Q.zeroPoint).round().clipByValue(-128, 127);
+  const qArr = Int32Array.from(await q.data());
+  const inputTensor = tf.tensor(qArr, [1, 50, 6], 'int32');
+
+  const t0 = performance.now();
+  const output = model.predict(inputTensor);
+  const outRaw = await output.data();
+  const elapsed = (performance.now() - t0).toFixed(2);
+
+  const jsProba = Array.from(outRaw).map(v => (v - OUTPUT_Q.zeroPoint) * OUTPUT_Q.scale);
+  const pyProba = ex.python_proba;
+  const agrees = Math.abs(jsProba[1] - pyProba[1]) < 0.02;
+  const pct = (jsProba[1] * 100).toFixed(1);
+
+  el.innerHTML =
+    `Pre-fall probability (computed live, just now, in your browser): <strong>${pct}%</strong>` +
+    `<div class="bar-bg"><div class="bar-fg" style="width:${pct}%"></div></div>` +
+    `<div class="note">Inference time: ${elapsed} ms &nbsp;·&nbsp; ` +
+    `Python reference (same .tflite file): ${(pyProba[1]*100).toFixed(1)}% &nbsp;·&nbsp; ` +
+    `<span class="${agrees ? 'match' : 'mismatch'}">${agrees ? 'matches' : 'DOES NOT MATCH'}</span></div>`;
+}
+
+document.getElementById('run-fall').addEventListener('click', () => runExample('fall', 'result-fall'));
+document.getElementById('run-walk').addEventListener('click', () => runExample('walk', 'result-walk'));
+loadEverything();
+</script>
+</body>
+</html>
