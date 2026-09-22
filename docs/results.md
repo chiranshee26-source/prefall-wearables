@@ -134,6 +134,45 @@ and D17, all in the 73-100% false-alarm range for detector A.
 KFall (fall-onset and impact labeled from video, so trustworthy lead time) is requested and pending approval;
 running the same two seeds there will show whether these numbers are SisFall-specific.
 
+## Real data: KFall (32 subjects, full dataset)
+
+A second real dataset, alongside SisFall above: [KFall](https://sites.google.com/view/kfalldataset)
+— 5,075 recordings (2,346 falls, 2,729 activities of daily living), split by subject (10 held out,
+never seen in training). Unlike SisFall, KFall has fall-onset and impact frames labeled from video,
+so the lead-time numbers below are measured, not estimated.
+
+| Detector | Falls caught | No false alarm | Mean lead | Falls with 200 ms or more |
+|---|---|---|---|---|
+| Threshold alone | 88.9% | 28.8% | 457 ms | 85.6% |
+| **A: threshold, then SVM confirms** | **84.9%** | **62.8%** | **456 ms** | 81.6% |
+| A: threshold, then Random Forest | 77.7% | 62.3% | 455 ms | 74.5% |
+| ML-first: SVM, 200 ms | 52.9% | 47.2% | 484 ms | 50.6% |
+| ML-first: SVM, 300 ms | 57.5% | 54.4% | 408 ms | 50.3% |
+| ML-first: Random Forest, 300 ms | 63.6% | 54.2% | 378 ms | 51.7% |
+
+**Detector A does much better here than on SisFall** (84.9% caught / 62.8% no false alarm here,
+against 63.0–63.7% / 33.5–42.8% on SisFall). This is not evidence the model itself improved —
+it's the same pipeline, same architecture. Two real differences in the data explain most of the
+gap: KFall's falls are scripted and performed by young adult subjects under controlled conditions,
+which produces more consistent motion signatures than SisFall's more varied elderly-inclusive fall
+styles; and KFall's onset/impact timing is ground truth from video, while SisFall's is an estimate.
+Read this as "KFall is an easier detection problem for this pipeline," not as a claim the detector
+generalizes better.
+
+**Caveat: the automatic axis-calibration step flagged KFall's data directly.** The pipeline warned
+`gyro/accelerometer match is weak (correlation 0.05): the gyro may be in a different frame; the
+threshold detector will be unreliable` while loading KFall — meaning it was not confident about
+which sensor axis is "up" for this dataset's recordings. The numbers above still ran and completed,
+but the threshold detector (and therefore Detector A, which gates on it) carries more uncertainty
+here than the equivalent SisFall numbers, which did not trigger this warning.
+
+**Hardest fall types: T21 and T24** (65% caught each); easiest: T27 and T28 (98–100%).
+**Most-triggering daily activities for Detector A**: T15 (91%), T18 (74%), T16 (70%).
+
+KFall does not include an elderly-specific subgroup the way SisFall does (SisFall's participant
+pool spans young and elderly adults; KFall's does not), so there is no KFall equivalent of the
+"elderly-specific specificity" comparison above.
+
 ## Firmware core vs Python (`firmware/test`)
 
 12 test trials, three detector configurations, both from Python's own 50 Hz stream and from raw 200 Hz samples:

@@ -196,6 +196,11 @@ def load_sisfall(root, limit_subjects=None, onset_window=1.0, min_impact_g=2.0, 
 
 _KF_RE = re.compile(r"^(S[A-Z]?\d{2})T(\d{2})R(\d{2})\.csv$", re.I)
 
+def _norm_kfall_subj(s):
+    """Some KFall drops name sensor files 'S06T...' but label files/folders 'SA06' (or vice versa).
+    Normalize both to 'SA<NN>' so a fall recording actually finds its label."""
+    m = re.search(r"(\d{2,3})", s)
+    return f"SA{int(m.group(1)):02d}" if m else s.upper()
 
 def parse_kfall_csv(path):
     """Returns (time_s, frame, acc[n,3] g, gyr[n,3] deg/s). Columns are read by position (time, frame counter,
@@ -239,7 +244,7 @@ def read_kfall_labels(label_dir):
         m = re.search(r"(S[A-Z]?\d{2})", os.path.basename(f), re.I)
         if not m:
             continue
-        subj = m.group(1).upper()
+        subj = _norm_kfall_subj(m.group(1))        
         wb = openpyxl.load_workbook(f, read_only=True, data_only=True)
         rows = list(wb.active.iter_rows(values_only=True))
         head = next((i for i, r in enumerate(rows) if any(isinstance(c, str) and "onset" in c.lower() for c in r)), None)
@@ -290,15 +295,15 @@ def load_kfall(root, limit_subjects=None, map_sample=80, seed=0, verbose=True):
     if not files:
         raise FileNotFoundError(f"no KFall files (like SA06T20R01.csv) found under {sensor_dir}")
     if limit_subjects:
-        subs = sorted({_KF_RE.match(os.path.basename(p)).group(1).upper() for p in files})[:limit_subjects]
-        files = [p for p in files if _KF_RE.match(os.path.basename(p)).group(1).upper() in subs]
+        subs = sorted({_norm_kfall_subj(_KF_RE.match(os.path.basename(p)).group(1)) for p in files})[:limit_subjects]
+        files = [p for p in files if _norm_kfall_subj(_KF_RE.match(os.path.basename(p)).group(1)) in subs]
     raws = []
     for k, p in enumerate(files):
         subj, task, trial = _KF_RE.match(os.path.basename(p)).groups()
         t, frame, acc, gyr = parse_kfall_csv(p)
         dt = float(np.median(np.diff(t))) if len(t) > 2 else 0.0
         fs = 1.0 / dt if dt > 0 and 20 < 1.0 / dt < 1000 else 100.0
-        raws.append((subj.upper(), int(task), int(trial), frame, acc, gyr, round(fs, 2)))
+        raws.append((_norm_kfall_subj(subj), int(task), int(trial), frame, acc, gyr, round(fs, 2)))
         if verbose and (k + 1) % 500 == 0:
             print(f"  read {k + 1}/{len(files)} KFall files")
     rng = np.random.default_rng(seed)
