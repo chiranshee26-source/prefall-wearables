@@ -1,6 +1,6 @@
 <div align="center">
 
-# TinyML fall prediction for wearable devices for elderly
+# TinyML fall prediction for elderly-care wearable devices
 
 **Smart insole vs. wristband: from simulated sensors to TinyML, a caregiver demo and ESP32 firmware**
 
